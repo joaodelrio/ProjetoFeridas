@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "ProjetoFeridas",
+    "slug": "ProjetoFeridas",
+    "version": "1.0.0",
+    "ios": {
+      "bundleIdentifier": "com.joaobdelrio.ProjetoFeridas"
+    },
+    "android": {
+      "package": "com.joaobdelrio.ProjetoFeridas"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "28359dee-e6be-4567-a9b3-a7861adfa76d"
+      }
+    }
+  }
+}
