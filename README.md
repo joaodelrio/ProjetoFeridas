@@ -14,12 +14,12 @@ O Projeto Feridas é uma aplicação desenvolvida para auxiliar na segmentação
 
 Para clonar e rodar este projeto, siga os passos abaixo:
 
-´´´
+```
 git clone https://github.com/seu-usuario/seu-projeto.git
 cd seu-projeto
 npm install
 npx expo run:android
-´´´
+```
 
 ## Requisitos
 
@@ -29,8 +29,8 @@ npx expo run:android
 - **React**: versão 18.2.0
 - **React Native**: versão 0.74.3
 - **Android SDK**:
-    **API Levels**: 31, 33, 34
-    **Build Tools**: 30.0.3, 33.0.0, 34.0.0, 35.0.0
+    ***API Levels***: 34
+    ***Build Tools***: 34.0.0
 
 ## Tecnologias Utilizadas
 
@@ -62,7 +62,7 @@ npx expo run:android
   - **Biblioteca**: `expo-image-picker`
 - Entre outros
 
-## 📝 Instruções para React Native
+## Instruções para React Native
 
 1. Certifique-se de ter o [Node.js](https://nodejs.org/) instalado.
 2. Siga as instruções do [Guia de Configuração do React Native](https://reactnative.dev/docs/environment-setup) para configurar seu ambiente de desenvolvimento.
