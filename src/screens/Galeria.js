@@ -1,318 +1,235 @@
-import React, {useEffect, useState} from 'react';
-import { View,  StyleSheet, StatusBar, Pressable, FlatList, Image, Button, Alert} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, StatusBar, Pressable, Image, Button, Alert, TextInput, Modal, Text, KeyboardAvoidingView, Platform } from 'react-native';
 import { CameraRoll } from "@react-native-camera-roll/camera-roll";
-import * as ImagePicker from 'expo-image-picker'; 
-import {
-    GDrive,
-    MimeTypes
-  } from "@robinbobin/react-native-google-drive-api-wrapper";
-import {
-    GoogleSignin,
-    GoogleSigninButton,
-    statusCodes,
-} from '@react-native-google-signin/google-signin';
-var fs = require('react-native-fs');
-import { GoogleAndroidClientId, GoogleIosClientId, GoogleWebClientId } from '../env/env';
+import * as ImagePicker from 'expo-image-picker';
+import { GDrive, MimeTypes } from "@robinbobin/react-native-google-drive-api-wrapper";
+import { GoogleSignin, GoogleSigninButton } from '@react-native-google-signin/google-signin';
 import RNFS from 'react-native-fs';
-import { get } from 'react-native/Libraries/TurboModule/TurboModuleRegistry';
+import { GoogleAndroidClientId, GoogleIosClientId, GoogleWebClientId } from '../env/env';
 
 export default function Galeria({ navigation }) {
-
     const [photos, setPhotos] = useState([]);
-    const [buttonMode, setButtonMode] = useState("off");
-    const [clickedIndex, setClickedIndex] = useState('');
-    const [clickedImage, setClickedImage] = useState('');
-    const [userInfo, setUserInfo] = useState([]);
-    const [imageSource, setImageSource] = useState(null);
+    const [userInfo, setUserInfo] = useState(null);
+    const [showSaveOptions, setShowSaveOptions] = useState(false); 
+    const [selectedAssets, setSelectedAssets] = useState([]);
+    const [imageNames, setImageNames] = useState([]);
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const [showNameModal, setShowNameModal] = useState(false);
+    const [imageName, setImageName] = useState('');
+    const [currentImageUri, setCurrentImageUri] = useState('');
+    const [showActionButtons, setShowActionButtons] = useState(true);
 
     const backScreenNavigation = () => {
         navigation.navigate('Home');
     };
-
-    const buttonHandler = (index) => {
-        if(buttonMode == "off"){
-            setButtonMode("on");
-            setClickedIndex(index);
-            setClickedImage(photos[index].node.image.uri);
-        } else {
-            setButtonMode("off");
-            setClickedIndex(null);
-        }
-    }
-
-    const editButton = async () => {
-        let img = photos[clickedIndex].node.image.uri;
-
-        // Convert content URI to file path
-        const filePath = await RNFS.stat(img)
-            .then((statResult) => {
-                return statResult.originalFilepath;
-            })
-            .catch((err) => {
-                console.error('Error: ', err.message, err.code);
-            });
-
-        const fileUri = `file://${filePath}`;
-        navigation.navigate('Edit', { imageSource: fileUri, screen: 'Galeria' });
-    };
-
-    const deleteConfirm = () => {
-        Alert.alert('Deletar', 'Deseja deletar a imagem?', [
-            {text: 'Sim', onPress: () => deleteHandler()},
-            {text: 'Não', onPress: () => console.log('Cancelado')},
-        ]);
-    }
-
-    const deleteHandler = async () => {
-        let img = photos[clickedIndex].node.image.uri;
-
-        // Convert content URI to file path
-        const filePath = await RNFS.stat(img)
-            .then((statResult) => {
-                return statResult.originalFilepath;
-            })
-            .catch((err) => {
-                console.error('Error: ', err.message, err.code);
-            });
-
-        const fileUri = `file://${filePath}`;
-
-        // Delete the image from the device
-        await RNFS.unlink(fileUri)
-            .then(() => {
-                console.log('Image deleted');
-            })
-            .catch((err) => {
-                console.error(err);
-            });
-
-        // Reload the gallery
-        getAllPhotos();
-    }
-
-    // const driveSaveConfirm = () => {
-    //     if (Platform.OS === 'android') {
-    //         Alert.alert('Drive', 'Deseja salvar a imagem no drive?', [
-    //             {text: 'Sim', onPress: () => driveSaveHandler()},
-    //             {text: 'Não', onPress: () => console.log('Cancelado')},
-    //         ]);
-    //     }
-    // }
-
-    // const driveSaveHandler = async () => {
-    //     try{
-    //         // Setting the date for the image name
-    //         let day = new Date().getDate() + '-' + new Date().getMonth() + '-' + new Date().getFullYear() + ' ' + new Date().getHours() + ':' + new Date().getMinutes() + ':' + new Date().getSeconds();
-    //         console.log("Salvando no drive... Image: " + `${clickedImage}`);
-
-    //         const gdrive = new GDrive();
-    //         gdrive.accessToken = (await GoogleSignin.getTokens()).accessToken;
-    //         // Increase the timeout fetch
-    //         gdrive.fetchTimeout = 3000;
-    //         // console.log(await gdrive.files.list());
-
-    //         const filePath = clickedImage;
-
-    //         // Converting the image to base64
-    //         const res = await
-    //         fs.readFile(filePath, 'base64').then((res) => {
-    //             return res;
-    //         }).catch((err) => {
-    //             console.log(err);
-    //         });
-            
-    //         // Loading alert to the user
-    //         Alert.alert('Drive', 'Salvando imagem no Drive...');
-
-    //         // Uploading the image to Google Drive
-    //         // 1igXlixE4ftYqEu_JBepe0xhjYOre5aHV - Root Folder
-    //         // 1j0QvjFzd3qQ9zqJlUvPKb3lGeuXUA-Jl - Folder for Original Images
-    //         // 1t3K3hcqsETutFxxGHwPGF5DJ4czLDGfH - Folder for Label Images
-    //         // 1ZuU9ByEcMYfyl7iSj8C7B2otHJ49c17u - Folder for Segmented Images
-    //         const id = await gdrive.files.newMultipartUploader()
-    //         .setData(res, MimeTypes.PNG)
-    //         .setIsBase64(true)
-    //         .setRequestBody({
-    //             name: day,
-    //             parents: ["1j0QvjFzd3qQ9zqJlUvPKb3lGeuXUA-Jl"]
-    //         })
-    //         .execute();
-            
-    //         //Alert the user that the image was uploaded
-    //         Alert.alert('Drive', 'Imagem salva no Drive com sucesso!');
-    //     }   
-        
-    //     catch(e){
-    //         console.log("Error uploading the image to Google Drive. Error message: " + e);
-    //     } 
-    // }
-
-    // const getAllPhotos = async () => {
-    //     CameraRoll.getPhotos({
-    //         first: 1000,
-    //         assetType: 'Photos',
-    //         groupName: 'DriveFeridas(1)',
-    //       })
-    //       .then(r => {
-    //         setPhotos(r.edges);
-    //         if(r.edges)
-    //         console.log(r.edges);
-    //       })
-    //       .catch((err) => {
-    //         console.log(err);
-    //       });   
-
-    // };
-
-    const getAllPhotos = async () => {
-        CameraRoll.getPhotos({
-            first: 1000,
-            assetType: 'Photos',
-            groupName: 'Aruco',
-        })
-        .then(async r => {
-            setPhotos(r.edges);
     
-            if (r.edges.length === 0) {
-                console.log('No photos found');
-               const dirPath = RNFS.ExternalStorageDirectoryPath + '/DCIM/Aruco';
+    const driveSaveHandler = async (assets) => {
+        if (!assets || assets.length === 0) {
+            Alert.alert('Erro', 'Nenhuma imagem foi selecionada para salvar.');
+            return;
+        }
+        try {
+            const gdrive = new GDrive();
+            const tokens = await GoogleSignin.getTokens();
+            gdrive.accessToken = tokens.accessToken;
+            gdrive.fetchTimeout = 5000;
+    
+            for (const [index, asset] of assets.entries()) {
+                const filePath = asset.uri;
+                const fileName = imageNames[index] || `${filePath.split('/').pop().split('.').slice(0, -1).join('')}_no_label_image`; // Garante que o nome inclui o sufixo
+    
+                let res;
                 try {
-                    // Verifique se a pasta já existe antes de criar
-                    const dirExists = await fs.exists(dirPath);
-                    if (!dirExists) {
-                        await RNFS.mkdir(dirPath);
-                        // console.log('Directory created');
-                    } else {
-                        // console.log('Directory already exists');
-                    }
-                } catch (err) {
-                    console.log('Error creating directory', err);
+                    res = await RNFS.readFile(filePath, 'base64');
+                } catch (readError) {
+                    console.log("Error reading file: ", readError);
+                    Alert.alert('Erro', `Erro ao ler a imagem: ${filePath}`);
+                    continue;
+                }
+    
+                console.log('Saving file with name:', fileName); 
+    
+                Alert.alert('Drive', `Salvando imagem ${fileName} no Drive...`);
+    
+                try {
+                    await gdrive.files.newMultipartUploader()
+                        .setData(res, MimeTypes.JPG)
+                        .setIsBase64(true)
+                        .setRequestBody({
+                            name: fileName,
+                            parents: ["1r-R8_LVQfA0sfk2i-ifKVipThMKs9cQF"]
+                        })
+                        .execute();
+                } catch (uploadError) {
+                    console.log("Error uploading image to Google Drive: ", uploadError);
+                    Alert.alert('Erro', `Erro ao salvar a imagem ${fileName} no Drive.`);
+                    continue;
                 }
             }
-        })
-        .catch(err => {
+    
+            Alert.alert('Drive', 'Imagens salvas no Drive com sucesso!');
+        } catch (e) {
+            console.log("Error with Google Drive or tokens. Error message: " + e);
+            Alert.alert('Erro', 'Erro ao acessar o Google Drive.');
+        }
+    };
+    
+    const getAllPhotos = async () => {
+        try {
+            const r = await CameraRoll.getPhotos({
+                first: 1000,
+                assetType: 'Photos', 
+            });
+    
+            setPhotos(r.edges); 
+        } catch (err) {
             console.log(err);
+        }
+    };
+    
+    const pickImages = async () => {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+            alert('Desculpe, precisamos de permissões para acessar sua galeria!');
+            return;
+        }
+
+        let result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsMultipleSelection: true,
+            selectionLimit: 10,
         });
+
+        if (!result.canceled && result.assets.length > 0) {
+            console.log('Selected assets:', result.assets);  
+            setSelectedAssets(result.assets);
+            setImageNames(new Array(result.assets.length).fill(''));
+            setCurrentImageIndex(0);
+            setCurrentImageUri(result.assets[0].uri);
+            setShowNameModal(true);
+            setShowActionButtons(false);
+        } 
     };
 
-    const pickImage = async () => {
-        // No permissions request is necessary for launching the image library
-        let result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.All,
-        });
-
-        if(!result.canceled){
-            // Coloca a imagem na pasta Aruco
-            const dirPath = RNFS.ExternalStorageDirectoryPath + '/DCIM/Aruco';
-            const fileName = result.assets[0].uri.split('/').pop();
-            const destPath = `${dirPath}/${fileName}`;
-            try {
-                await RNFS.moveFile(result.assets[0].uri, destPath);
-                console.log('Image moved successfully');
-            } catch (err) {
-                console.log('Error moving image', err);
-            }
-            getAllPhotos();
-    
+    const handleSaveOptions = (option) => { 
+        setShowSaveOptions(false);
+        setShowActionButtons(true);
+        if (option === 'drive' && selectedAssets.length > 0) {
+            driveSaveHandler(selectedAssets);
+        } else {
+            Alert.alert('Erro', 'Nenhuma imagem selecionada.');
         }
     };
 
-    //Google Sign In
     const configureGoogleSignIn = () => {
         GoogleSignin.configure({
             webClientId: GoogleWebClientId,
             androidClientId: GoogleAndroidClientId,
             iosClientId: GoogleIosClientId,
-            //Dando erro
-            scopes: [
-                'https://www.googleapis.com/auth/drive',
-                ],
+            scopes: ['https://www.googleapis.com/auth/drive'],
         });
-    }
+    };
+
+    const checkIsSignedIn = async () => {
+        const isSignedIn = await GoogleSignin.isSignedIn();
+        if (isSignedIn) {
+            const userInfo = await GoogleSignin.getCurrentUser();
+            setUserInfo(userInfo);
+        }
+    };
 
     const signIn = async () => {
-        
-        console.log("Sign in");
-        try{
-            console.log("Try");
+        try {
             await GoogleSignin.hasPlayServices();
             const info = await GoogleSignin.signIn();
             setUserInfo(info);
-            console.log(info);
-            // alerta mostrando a info
             Alert.alert('Info', JSON.stringify(info));
-        } catch(e){
-            // Network error
-            if(e.code == 7){
-                Alert.alert('Erro', 'Verifique sua conexão com a internet');
+        } catch (e) {
+            if (e.code === statusCodes.SIGN_IN_REQUIRED) {
+                Alert.alert('Erro', 'O login é necessário');
+            } else {
+                Alert.alert('Erro', 'ERRO: ' + JSON.stringify(e));
             }
-            console.log(e);
-            // alerta mostrando o erro
-            Alert.alert('Erro', 'ERRO: '+JSON.stringify(e));
-        }
-    };
-    
-    const logOut = async () => {
-        try{
-            console.log("Log out");
-            await GoogleSignin.revokeAccess();
-            await GoogleSignin.signOut();
-            setUserInfo([]);
-        } catch(e){
-            console.log(e);
-            setError(e);
         }
     };
 
+    const handleNameSubmit = () => {
+        const updatedNames = [...imageNames];
+        const newName = `${imageName}_no_label_image`;
+        updatedNames[currentImageIndex] = newName;
+        setImageNames(updatedNames);
+        setImageName('');
+    
+        console.log('Updated image names:', updatedNames); 
+    
+        if (currentImageIndex < selectedAssets.length - 1) {
+            setCurrentImageIndex(currentImageIndex + 1);
+            setCurrentImageUri(selectedAssets[currentImageIndex + 1].uri);
+        } else {
+            setShowNameModal(false);
+            setShowSaveOptions(true);
+        }
+    };
+    
     useEffect(() => {
         getAllPhotos();
         configureGoogleSignIn();
     }, []);
 
-    // useEffect(() => {
-    //     getAllPhotos();
-    // }, []);
-
     return (
         <View style={styles.container}>
             <StatusBar barStyle="dark-content" />
-            <View style={styles.fotosContainer}>
-                <FlatList  data={photos} horizontal={false} numColumns={2} renderItem={({item, index})=>{
-                    return(
-                        <View style={styles.listaFotos}>
-                            <Pressable onPress={() => buttonHandler(index)}>
-                            <Image source={{uri: item.node.image.uri}} style={{width: 184, height: 184}}/>
-                            {buttonMode === "on" && clickedIndex === index && (
-                                <View style={{flexDirection: 'row'}}>
-                                    <Pressable style={styles.botaoIcon} onPress={editButton}>
-                                        <Image source={require('../../assets/draw.png')} style={{width: 24, height: 24}}/>
-                                    </Pressable>
-                                    <Pressable style={styles.botaoIcon} onPress={deleteConfirm}>
-                                        <Image source={require('../../assets/trash.png')} style={{width: 24, height: 24}}/>
-                                    </Pressable>                
+            {showActionButtons && (
+                <View style={styles.botoesContainer}>
+                    <Pressable style={styles.botao} onPress={pickImages}>
+                        <Text style={styles.textbotao}>Selecionar Imagens</Text>
+                    </Pressable>
+                    <Pressable style={styles.botao} onPress={backScreenNavigation}>
+                        <Text style={styles.textbotao}>Voltar ao Inicio</Text>
+                    </Pressable>
+                </View>
+            )}
+            <Modal visible={showNameModal} transparent={true} animationType="slide">
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={styles.keyboardAvoidingContainer}
+                    keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 30}
+                >
+                    <View style={styles.modalContainer}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.imageWrapper}>
+                                <View style={styles.textContainer}>
+                                    <Image source={{ uri: currentImageUri }} style={styles.image} />
                                 </View>
-                                
-
-                            )}
-                            </Pressable>
-                            
+                            </View>
+                            <TextInput
+                                style={styles.textInput}
+                                placeholder="Digite o nome da imagem"
+                                value={imageName}
+                                onChangeText={setImageName}
+                            />
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 0 }}>
+                                <Pressable style={styles.botao} onPress={() => setShowNameModal(false)}>
+                                    <Text style={styles.textbotao}>Voltar</Text>
+                                </Pressable>
+                                <Pressable style={styles.botao} onPress={handleNameSubmit}>
+                                    <Text style={styles.textbotao}>Salvar</Text>
+                                </Pressable>
+                            </View>
                         </View>
-                    )
-                }}/>
-             </View>
-            <View style={styles.botoesContainer}>
-                <Pressable style={styles.botao} onPress={backScreenNavigation}>
-                    <Image source={require('../../assets/home.png')} style={{width: 30, height: 30}}/>
-                </Pressable>
-                <Pressable style={styles.botao} onPress={pickImage}>
-                    <Image source={require('../../assets/gallery.png')} style={{width: 30, height: 30}}/>
-                </Pressable>
-                { userInfo.user ? (
-                    <Button title="Logout" onPress={logOut}/>
-                ) : (
-                    <GoogleSigninButton style={styles.botaoGoogle} color={GoogleSigninButton.Color.Dark} onPress={signIn} />
-                )}
-            </View>
+                    </View>
+                </KeyboardAvoidingView>
+            </Modal>
+            <Modal visible={showSaveOptions} transparent={true}>
+                <View style={styles.modal}>
+                    <Pressable style={styles.botao} onPress={() => handleSaveOptions('drive')}>
+                        <Text style={styles.textbotao}>Salvar Google Drive</Text>
+                    </Pressable>
+                    <Pressable style={styles.botao} onPress={() => {setShowSaveOptions(false);setShowActionButtons(true);}}>
+                        <Text style={styles.textbotao}>Cancelar</Text>
+                    </Pressable>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -322,66 +239,99 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#fff',
     },
-    text : {
-        fontSize: 20,
+    cameraContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
     },
-    titulo: {
-        paddingTop: 95,
-        paddingBottom: 50,
-        fontSize: 37,
-        fontWeight: 'bold',
-        color: '#698C8C',
+    imageThumbnail: {
+        width: 100,
+        height: 100,
+        margin: 5,
     },
     botoesContainer: {
         width: '100%',
-        marginTop: 3,
+        marginTop: 250,
+        //alignItems: 'center',
+    },
+    modal: {
         flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#fff',
+        //alignItems: 'center',
+        backgroundColor: 'transparent',
+    },
+    modalContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        
+    },
+    modalContent: {
+        width: '90%', 
+        height: '75%', 
+        backgroundColor: 'white',
+        padding: 20,
+        borderRadius: 20,
+        alignItems: 'center',
+        borderWidth: 5, 
+        borderColor: '#1E3C40',
+    },
+    imageWrapper: {
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    image: {
+        width: 300,
+        height: 300,
+    },
+    imageText: {
+        fontSize: 15,            
+        color: 'white',          
+        fontWeight: 'bold',      
+        textAlign: 'center',    
+    },
+    textContainer: {
+       backgroundColor: '#1E3C40', 
+        padding: 5,             
+        borderRadius: 10,         
+        marginBottom: 10,        
+    },
+    textInput: {
+        width: '100%',
+        borderWidth: 2, 
+        borderColor: '#1E3C40', 
+        borderRadius: 10, 
+        marginBottom: 20,
+        padding: 10,
+        color: 'black', 
+        fontSize: 18,  
     },
     botao: {
         backgroundColor: '#1E3C40',
-        padding: 10,
+        padding: 20,
         margin: 15,
         alignContent: 'center',
         justifyContent: 'center',
-        borderRadius: 10,
+        borderRadius: 20,
+    },
+    text: {
+        color: 'white',             
+        fontSize: 16,               
     },
     textbotao: {
         color: '#fff',
-        fontSize: 20,
+        fontFamily: 'Roboto',
         textAlign: 'center',
+        fontSize: 17,
+        fontWeight: 'bold',
     },
-    listaFotos: {
-        padding: 5,
+    googleButton: {
+        width: 192,
+        height: 48,
+        marginBottom: 20,
     },
-    fotosContainer: {
-        width: '100%',
-        height: '88%',
-        alignItems: 'center',
-        position: 'relative',
-        
-    },
-    botaoIcon: {
-        padding: 2,
-        backgroundColor: '#1E3C40',
-        // borderRightColor: 'black',
-        // borderRightWidth: 1,
-        width: 50,
-        height: 50,
+    keyboardAvoidingContainer: {
+        flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    botaoGoogle: {
-        width: '40%',
-        size: GoogleSigninButton.Size.Wide,
-        padding: 10,
-        margin: 10,
-        alignContent: 'center',
-        justifyContent: 'center',
-        borderRadius: 10,
-    }
-    
+    }  
 });
