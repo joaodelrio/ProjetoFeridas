@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, StatusBar, Pressable, Image, Button, Alert, TextInput, Modal, Text, KeyboardAvoidingView, Platform } from 'react-native';
-import { CameraRoll } from "@react-native-camera-roll/camera-roll";
-import * as ImagePicker from 'expo-image-picker';
 import { GDrive, MimeTypes } from "@robinbobin/react-native-google-drive-api-wrapper";
 import { GoogleSignin, GoogleSigninButton } from '@react-native-google-signin/google-signin';
 import RNFS from 'react-native-fs';
 import { GoogleAndroidClientId, GoogleIosClientId, GoogleWebClientId } from '../env/env';
+import { Appbar, Title } from 'react-native-paper';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
+import * as ImagePicker from 'expo-image-picker';
+import { CameraRoll } from "@react-native-camera-roll/camera-roll";
 
 export default function Galeria({ navigation }) {
     const [photos, setPhotos] = useState([]);
@@ -18,11 +21,14 @@ export default function Galeria({ navigation }) {
     const [imageName, setImageName] = useState('');
     const [currentImageUri, setCurrentImageUri] = useState('');
     const [showActionButtons, setShowActionButtons] = useState(true);
+    
+
+    const Stack = createStackNavigator();
 
     const backScreenNavigation = () => {
         navigation.navigate('Home');
     };
-    
+
     const driveSaveHandler = async (assets) => {
         if (!assets || assets.length === 0) {
             Alert.alert('Erro', 'Nenhuma imagem foi selecionada para salvar.');
@@ -88,28 +94,38 @@ export default function Galeria({ navigation }) {
     };
     
     const pickImages = async () => {
+        // Verifica se o usuário está logado no Google
+        const isSignedIn = await GoogleSignin.isSignedIn();
+        if (!isSignedIn) {
+            // Navega para a tela de erro se não estiver logado
+            navigation.navigate('ErrorScreen');
+            return;
+        }
+    
+        // Se o usuário estiver logado, segue o fluxo normal
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
             alert('Desculpe, precisamos de permissões para acessar sua galeria!');
             return;
         }
-
+    
         let result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsMultipleSelection: true,
             selectionLimit: 10,
         });
-
+    
         if (!result.canceled && result.assets.length > 0) {
-            console.log('Selected assets:', result.assets);  
+            console.log('Selected assets:', result.assets);
             setSelectedAssets(result.assets);
             setImageNames(new Array(result.assets.length).fill(''));
             setCurrentImageIndex(0);
             setCurrentImageUri(result.assets[0].uri);
             setShowNameModal(true);
             setShowActionButtons(false);
-        } 
+        }
     };
+    
 
     const handleSaveOptions = (option) => { 
         setShowSaveOptions(false);
@@ -143,13 +159,21 @@ export default function Galeria({ navigation }) {
             await GoogleSignin.hasPlayServices();
             const info = await GoogleSignin.signIn();
             setUserInfo(info);
-            Alert.alert('Info', JSON.stringify(info));
-        } catch (e) {
-            if (e.code === statusCodes.SIGN_IN_REQUIRED) {
-                Alert.alert('Erro', 'O login é necessário');
-            } else {
+            Alert.alert('Login efetuado com sucesso!');
+        } catch (e) {   
                 Alert.alert('Erro', 'ERRO: ' + JSON.stringify(e));
-            }
+        }
+    };
+
+    const logOut = async () => {
+        try{
+            console.log("Log out");
+            await GoogleSignin.revokeAccess();
+            await GoogleSignin.signOut();
+            setUserInfo(null);
+        } catch(e){
+            console.log(e);
+            Alert.alert('Erro', 'Erro ao fazer logout: ' + JSON.stringify(e));
         }
     };
 
@@ -173,12 +197,29 @@ export default function Galeria({ navigation }) {
     
     useEffect(() => {
         getAllPhotos();
+        checkIsSignedIn(); // Verifica se o usuário está logado ao carregar a tela
         configureGoogleSignIn();
     }, []);
 
     return (
         <View style={styles.container}>
             <StatusBar barStyle="dark-content" />
+            <Appbar.Header>
+                <Appbar.BackAction onPress={() => navigation.goBack()} />
+                <Appbar.Content title="Galeria" />
+                {userInfo && userInfo.user ? (
+                    <Pressable style={styles.botaoLogout} onPress={logOut}>
+                        <Text style={styles.textbotao}>Logout</Text>
+                    </Pressable>
+                    
+                ) : (
+                    <GoogleSigninButton
+                        style={styles.botaoGoogle}
+                        color={GoogleSigninButton.Color.Dark}
+                        onPress={signIn}
+                    />
+                )}
+            </Appbar.Header>
             {showActionButtons && (
                 <View style={styles.botoesContainer}>
                     <Pressable style={styles.botao} onPress={pickImages}>
@@ -186,7 +227,7 @@ export default function Galeria({ navigation }) {
                     </Pressable>
                     <Pressable style={styles.botao} onPress={backScreenNavigation}>
                         <Text style={styles.textbotao}>Voltar ao Inicio</Text>
-                    </Pressable>
+                    </Pressable>           
                 </View>
             )}
             <Modal visible={showNameModal} transparent={true} animationType="slide">
@@ -232,6 +273,8 @@ export default function Galeria({ navigation }) {
             </Modal>
         </View>
     );
+
+
 }
 
 const styles = StyleSheet.create({
@@ -324,14 +367,25 @@ const styles = StyleSheet.create({
         fontSize: 17,
         fontWeight: 'bold',
     },
-    googleButton: {
-        width: 192,
-        height: 48,
-        marginBottom: 20,
-    },
     keyboardAvoidingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-    }  
+    },
+    botaoGoogle: {
+        width: '30%',
+        size: GoogleSigninButton,
+        padding: 10,
+        margin: 10,
+        height: '70%',
+        
+    },  
+    botaoLogout: {
+        backgroundColor: '#1E3C40',
+        width: '30%',
+        padding: 10,
+        margin: 10,
+        height: '70%',
+        borderRadius: 20,
+    },
 });

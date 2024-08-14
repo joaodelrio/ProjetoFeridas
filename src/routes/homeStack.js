@@ -9,6 +9,7 @@ import Edit from '../screens/DrawLabel/Edicao';
 import DriveSave from '../screens/save/DriveSaveImg';
 //import Camera from '../screens/Camera';
 import Config from '../screens/Configuracao';
+import ErrorScreen from '../screens/ErrorScreen';
 
 const screens = {
     Home: {
@@ -40,7 +41,7 @@ const screens = {
     Galeria: {
         screen: Galeria,
         navigationOptions: {
-            title: 'Galeria',
+            headerShown: false,
         },
     },
     DriveGaleria: {
@@ -59,6 +60,12 @@ const screens = {
         screen: DriveSave,
         navigationOptions: {
             title: 'Drive',
+        },
+    },
+    ErrorScreen: {  // Adicionando a tela de erro
+        screen: ErrorScreen,
+        navigationOptions: {
+            headerShown: false,
         },
     },
 };

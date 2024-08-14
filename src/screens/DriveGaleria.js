@@ -9,7 +9,6 @@ import {
 import {
     GoogleSignin,
     GoogleSigninButton,
-    statusCodes,
 } from '@react-native-google-signin/google-signin';
 var fs = require('react-native-fs');
 import { GoogleAndroidClientId, GoogleIosClientId, GoogleWebClientId } from '../env/env';
@@ -42,6 +41,12 @@ export default function GaleriaDrive({ navigation }) {
     }
 
     const reloadHandler = async() => {
+        const isSignedIn = await GoogleSignin.isSignedIn();
+        if (!isSignedIn) {
+            // Navega para a tela de erro se não estiver logado
+            navigation.navigate('ErrorScreen');
+            return;
+        }
         Alert.alert('Drive', 'Estamos baixando as imagens do drive. Aguarde um momento!')
         await getAllPhotosFromDrive();
         setReload(true);
@@ -58,6 +63,13 @@ export default function GaleriaDrive({ navigation }) {
     };
 
     const editButton = async () => {
+        const isSignedIn = await GoogleSignin.isSignedIn();
+        if (!isSignedIn) {
+            // Navega para a tela de erro se não estiver logado
+            navigation.navigate('ErrorScreen');
+            return;
+        }
+        
         let img = photos[clickedIndex].node.image.uri;
 
         // Convert content URI to file path
@@ -265,30 +277,26 @@ export default function GaleriaDrive({ navigation }) {
             webClientId: GoogleWebClientId,
             androidClientId: GoogleAndroidClientId,
             iosClientId: GoogleIosClientId,
-            //Dando erro
-            scopes: [
-                'https://www.googleapis.com/auth/drive',
-                ],
+            scopes: ['https://www.googleapis.com/auth/drive'],
         });
-    }
+    };
+
+    const checkIsSignedIn = async () => {
+        const isSignedIn = await GoogleSignin.isSignedIn();
+        if (isSignedIn) {
+            const userInfo = await GoogleSignin.getCurrentUser();
+            setUserInfo(userInfo);
+        }
+    };
 
     const signIn = async () => {
-        
-        console.log("Sign in");
-        try{
-            console.log("Try");
+        try {
             await GoogleSignin.hasPlayServices();
             const info = await GoogleSignin.signIn();
             setUserInfo(info);
-            console.log(info);
-        } catch(e){
-            // Network error
-            if(e.code == 7){
-                Alert.alert('Erro', 'Verifique sua conexão com a internet');
-            }
-            console.log(e);
-            // alerta mostrando o erro
-            Alert.alert('Erro', 'ERRO: '+JSON.stringify(e));
+            Alert.alert('Login efetuado com sucesso!');
+        } catch (e) {
+            Alert.alert('Erro', 'Erro ao fazer login: ' + JSON.stringify(e));
         }
     };
     
@@ -297,15 +305,16 @@ export default function GaleriaDrive({ navigation }) {
             console.log("Log out");
             await GoogleSignin.revokeAccess();
             await GoogleSignin.signOut();
-            setUserInfo([]);
+            setUserInfo(null);
         } catch(e){
             console.log(e);
-            setError(e);
+            Alert.alert('Erro', 'Erro ao fazer logout: ' + JSON.stringify(e));
         }
     };
 
     useEffect(() => {
         getAllPhotos();
+        checkIsSignedIn();
         configureGoogleSignIn();
     }, []);
 
@@ -365,11 +374,12 @@ export default function GaleriaDrive({ navigation }) {
                 <Pressable style={styles.botao} onPress={reloadHandler}>
                     <Image source={require('../../assets/reload.png')} style={{width: 30, height: 30}}/>
                 </Pressable>
-                { userInfo.user ? (
-                    <Button title="Logout" onPress={logOut}/>
+                {userInfo && userInfo.user ? (
+                    <Button title="Logout" onPress={logOut}/>   
                 ) : (
                     <GoogleSigninButton style={styles.botaoGoogle} color={GoogleSigninButton.Color.Dark} onPress={signIn} />
                 )}
+            
             </View>
         </View>
     );
