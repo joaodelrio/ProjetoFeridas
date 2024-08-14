@@ -72,7 +72,7 @@ rm -rf node_modules
 npm install
 npx expo run:android
 ```
-3. **Problemas com a pasta android**:
+3. **Erro pasta android**:
 
 - Remova a pasta android e gere-a novamente:
 
